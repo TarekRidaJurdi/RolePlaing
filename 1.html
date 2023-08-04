@@ -1,0 +1,25 @@
+<!-- ملف HTML -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>عرض رسالة عند الدخول إلى الرابط المحدد</title>
+</head>
+<body>
+    <a href="https://bot.zucodia.com/"> link</a>
+  <script>
+
+    // ملف script.js
+// التحقق من العنوان URL عند تحميل الصفحة
+window.addEventListener('load', function() {
+  // العنوان الذي نرغب في إظهار رسالة `alert` عند الدخول إليه
+  const targetURL = "https://bot.zucodia.com/";
+
+  // التحقق مما إذا كان العنوان الحالي يساوي العنوان المستهدف
+  if (window.location.href === targetURL) {
+    // عرض رسالة `alert`
+    alert("مرحبًا بك في https://bot.zucodia.com/");
+  }
+});
+  </script>
+</body>
+</html>
