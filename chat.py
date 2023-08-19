@@ -74,11 +74,68 @@ def Zbot(prompt,COMPLETIONS_MODEL,temperature):
         )["choices"][0]["text"].strip(" \n")
         return bot_response
 
+def convert_to_short_parts(response, max_length):
+        parts = []
+        pattern = r"(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)(?<!\d\.)\s"
+        sentences = re.split(pattern, response)
+        current_part = ""
+        for sentence in sentences:
+            if len(current_part) + len(sentence) <= max_length:
+                current_part += sentence
+            elif sentence.endswith('.'):
+                current_part += sentence
+                parts.append(current_part)
+                current_part = ""
+            else:
+                parts.append(current_part)
+                current_part = sentence
+        if current_part != '':
+            parts.append(current_part)
+        parts = list(filter(lambda item: item != '', parts))
+        return parts
+
+def edit_sentences(sentences):
+            def is_emoji(character):
+                ascii_value = ord(character)
+                return 1000 <= ascii_value  # نطاق السمايلات في ترميز ASCII
+
+            result = []
+            previous_sentence = ""
+
+            for s in range(len(sentences)):
+                temp=""
+                for i in range(len(sentences[s])):
+                    if is_emoji(sentences[s][i]):
+                        temp+=sentences[s][i]
+                    else:
+                        break
+                if temp!="":
+                    sentences[s-1]=sentences[s-1]+temp
+                    sentences[s]=sentences[s][len(temp):]
+            sentences = list(filter(lambda item: item != '', sentences))         
+            return sentences
 
 def conversation(user_response):
     user_response,user_id=user_response.split('-#-')
     data = load_dict_from_json('data.json')
     user=data[user_id]
+    if user_response.strip().upper()=="MEMORIZE":
+        prompt="""
+            Vocabularies: {}
+            explain all Vocabularies like dectionary.⚙️🤖💬
+            use many and suitable emojis.
+            you must to explain each vocabulary or word as following template:
+            word:[]
+            word type:[]
+            definition:[] use emojis please.
+            Common synonyms:[]
+            
+            
+            """.format(user['Vocabularies'])
+        Z=Zbot(prompt,COMPLETIONS_MODEL,1)
+        Z=Z.split('\n')
+        Z=[x for x in Z if len(x.strip())>0 ]
+        return Z
     if user['step'] == 'step1':
         user['Vocabularies']=user_response.split(',')
         data[user_id]=user
@@ -119,7 +176,7 @@ def conversation(user_response):
         if user_response.lower().strip()=='yes':
             user['step']='step3'
             user['prompt']="""
-                    Act as "Bot role" to start our conversation to learn me the following Vocabularies.use Emojis please.
+                    Act as "Bot role" to start our conversation to learn me the following Vocabularies.use many emojis.
                     first introuduce yourself.
                     Just return Bot response.
                     let's make our conversation shortly with many Emojis.
@@ -148,7 +205,9 @@ def conversation(user_response):
         user['prompt']+=Z
         data[user_id]=user
         save_dict_to_json(data, 'data.json')
-        return [Z]
+        edit_result = convert_to_short_parts(Z, 30)
+        edit_result = edit_sentences(edit_result)
+        return edit_result
 
 
     
