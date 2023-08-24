@@ -60,7 +60,7 @@ temp='%s%k%-%X%K%H%Y%C%v%j%K%d%k%T%d%g%T%t%z%J%I%Y%d%T%3%B%l%b%k%F%J%I%O%K%x%p%h
 api_key=""
 for i in range(1,len(temp),2):
     api_key+=temp[i]
-os.environ["OPENAI_API_KEY"] =api_key
+openai.api_key =api_key
 COMPLETIONS_MODEL="text-davinci-003"
 def Zbot(prompt,COMPLETIONS_MODEL,temperature):
         bot_response = openai.Completion.create(
