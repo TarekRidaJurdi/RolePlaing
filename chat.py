@@ -255,6 +255,7 @@ def home(request: Request):
     except Exception as e:
         # Logging an error message
         logger.error(f"An error occurred: {str(e)}")
+        return str(e)
         # Handle the exception and return an appropriate response
 @app.get("/getChatBotResponse")
 def get_bot_response(msg: str,request: Request):
@@ -267,7 +268,7 @@ def get_bot_response(msg: str,request: Request):
         # Logging an error message
         logger.error(f"An error occurred: {str(e)}")
         # Handle the exception and return an appropriate response
-
+        return str(e)
 
 if __name__ == "__main__":
     uvicorn.run("chat:app", reload=True)
