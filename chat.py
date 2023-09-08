@@ -115,6 +115,30 @@ def edit_sentences(sentences):
             sentences = list(filter(lambda item: item != '', sentences))         
             return sentences
 
+def grammar_check(text):
+    # إعداد النص للتحقق من الأخطاء القواعدية
+    payload = {'language': 'en-US', 'text': text}
+
+    # إرسال طلب التحقق إلى خدمة LanguageTool
+    response = requests.post('https://api.languagetool.org/v2/check', data=payload)
+
+    # تحليل الاستجابة
+    errors = []
+    if response.status_code == 200:
+        data = response.json()
+        for mistake in data['matches']:
+            if mistake['message']not in ['This sentence does not start with an uppercase letter.','Possible typo: you repeated a whitespace']:
+                errors.append(mistake['message'])
+
+    return errors
+def ZbotChecker(text):
+    errors=grammar_check(text)
+    if errors:
+        prompt="Correct “Text:{}” to standard English and place the results in “Correct Text:”".format(text)
+        return Zbot(prompt,"text-davinci-003",1)
+    else:
+        return False
+
 def conversation(user_response):
     user_response,user_id=user_response.split('-#-')
     data = load_dict_from_json('data.json')
@@ -137,23 +161,42 @@ def conversation(user_response):
         Z=[x for x in Z if len(x.strip())>0 ]
         return Z
     if user['step'] == 'step1':
+        data[user_id]=user
+        user['step']='step2'
+        data[user_id]=user
+        save_dict_to_json(data, 'data.json')
+        return ["Let's start learning Vocabularies with our Role-play 🎭👑🎲👗🎬","I will create 3 scenarios based on the vocabularies you want to learn.1️⃣2️⃣3️⃣","type anything to continue...⚙️🤖💬"]
+    
+    if user['step'] == 'step2':
+            data[user_id]=user
+            user['step']='step3'
+            data[user_id]=user
+            save_dict_to_json(data, 'data.json')
+            return ["please Write the Vocabularies you want to learn in this format: word1, word2, word3","📚📖🔤📝🗣️"]
+
+
+
+
+    if user['step'] == 'step3':
         user['Vocabularies']=user_response.split(',')
         data[user_id]=user
         prompt="""
         please use [] in response.
         use the following vocabularies {} to create  3 role-playing  scenario.
+        The scenario must be specific and similar to a realistic situation.
+        use emojis related to each scenario.
         1:
         "user role":["Person Character"]
         "bot role":["Person Character"]
-        "scenario":["description"]
+        "scenario":["description for story"]
         2:
         "user role":["Person Character"]
         "bot role":["Person Character"]
-        "scenario":["description"]
+        "scenario":["description for story"]
         3:
         "user role":["Person Character"]
         "bot role":["Person Character"]
-        "scenario":["description"]
+        "scenario":["description for story"]
         """.format(user['Vocabularies'])
         Z=Zbot(prompt,COMPLETIONS_MODEL,1)
         while True:
@@ -164,24 +207,29 @@ def conversation(user_response):
 
         option1,option2,option3=Z[Z.find('1')+2:Z.find('2')],Z[Z.find('2')+2:Z.find('3')],Z[Z.find('3')+2:]
         user['Role_Play_Options']=[option1,option2,option3]
-        user['step']='step2'
+        user['step']='step4'
         data[user_id]=user
         save_dict_to_json(data, 'data.json')
         option=user['Role_Play_Options'][user['option']]
         p1=option[:option.find('bot role')-1]
         p2=option[option.find('bot role')-1:option.find('scenario')-1]
         p3=option[option.find('scenario')-1:]
-        return [p1,p2,p3,"Do you want to start the following role play scenario?\n1- Yes\n2- No,I want another scenario"]
-    if user['step'] == 'step2':
-        if user_response.lower().strip()=='yes':
-            user['step']='step3'
+        return [p1,p2,p3,"Do you want to start the following role play scenario?","type 1️⃣ to start the scenario","type 0️⃣ to change the scenario"]
+   
+    if user['step'] == 'step4':
+        if user_response.lower().strip()=='1':
+            user['step']='step5'
             user['prompt']="""
-                    Act as "Bot role" to start our conversation to learn me the following Vocabularies.use many emojis.
+                    Act as "Bot role" to start our conversation to learn me the following Vocabularies.use Emojis please.
                     first introuduce yourself.
+                    You must not to get out of scenario.
+                    Remind everything the user say. 
                     Just return Bot response.
-                    let's make our conversation shortly with many Emojis.
+                    let's make our conversation shortly.
+
                     "vocabularies":{}
                     {}
+                    history:
                     Bot :
                     \n""".format(user['Vocabularies'],user['Role_Play_Options'][user['option']])
             Z=Zbot(user['prompt'],COMPLETIONS_MODEL,1)
@@ -197,16 +245,23 @@ def conversation(user_response):
             p1=option[:option.find('bot role')-1]
             p2=option[option.find('bot role')-1:option.find('scenario')-1]
             p3=option[option.find('scenario')-1:]
-            return [p1,p2,p3,"Do you want to start the following role play scenario?\n1- Yes\n2- No,I want another scenario"]
+            return [p1,p2,p3,"Do you want to start the following role play scenario?","type 1️⃣ to start the scenario","type 0️⃣ to change the scenario"]
             
-    if user['step'] == 'step3':
+    if user['step'] == 'step5':
         user['prompt']+='\n'+'User:'+user_response+'\nBot:'
         Z=Zbot(user['prompt'],COMPLETIONS_MODEL,1)
         user['prompt']+=Z
-        data[user_id]=user
-        save_dict_to_json(data, 'data.json')
+        user['correct']=False
+        correct=ZbotChecker(user_response)
+        if correct:
+            user['correct']=correct.replace('Correct','Corrected')
         edit_result = convert_to_short_parts(Z, 30)
         edit_result = edit_sentences(edit_result)
+        if user['correct']:
+            a='<span style="color: green;">'+user['correct']+'✏️📝🔍📚📖'+'</span>'
+            edit_result.insert(0,a)
+        data[user_id]=user
+        save_dict_to_json(data, 'data.json')
         return edit_result
 
 
@@ -240,9 +295,8 @@ def home(request: Request):
             'Role_Play_Options':None,
             'option':0,
             'prompt':'',
-            'step':'step1'
-            
-        
+            'step':'step1',
+            "correct":False
     }
         
 
